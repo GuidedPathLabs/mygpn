@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0A192F">
+  <title>Guided Path Noida — GPN Hub Login</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./assets/app.css">
+  <style>
+    .login-wrap {
+      max-width: 440px;
+      margin: 34px auto;
+      padding: 0 14px;
+    }
+    .login-logo {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      border: 2px solid var(--gpn-gold);
+      object-fit: cover;
+      display: block;
+      margin: 0 auto 10px;
+    }
+    .portal-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .portal-tab {
+      padding: 9px 6px;
+      border-radius: 8px;
+      border: 1px solid var(--gpn-border-soft);
+      background: var(--gpn-surface-2);
+      color: var(--gpn-text);
+      font-weight: 600;
+      font-size: 0.88rem;
+      cursor: pointer;
+    }
+    .portal-tab.active {
+      background: var(--gpn-gold);
+      color: #061325;
+      border-color: var(--gpn-gold);
+    }
+  </style>
+</head>
+<body>
+  <header class="gpn-topbar">
+    <div class="gpn-brand">
+      <img src="https://assets.guidedpathnoida.in/gpn/gpn-logo1.jpg" alt="GPN Logo">
+      <div>
+        <div class="gpn-brand-title">Guided Path Noida</div>
+        <div class="gpn-brand-sub">GPN Central Hub • 2026–27</div>
+      </div>
+    </div>
+    <div class="gpn-topbar-actions">
+      <a class="gpn-btn gpn-btn-outline gpn-btn-sm" href="./estore.html">🛒 E-Store</a>
+      <button type="button" class="gpn-btn gpn-btn-outline gpn-btn-sm" id="btnLoginReportErr">⚠ Report Error</button>
+    </div>
+  </header>
+
+  <main class="login-wrap">
+    <div class="gpn-card">
+      <img class="login-logo" src="https://assets.guidedpathnoida.in/gpn/gpn-logo1.jpg" alt="Guided Path Noida">
+      <h2 class="gpn-card-title" style="text-align:center;margin-bottom:4px">Sign in to GPN Hub</h2>
+      <p class="gpn-muted" style="text-align:center;margin-top:0;margin-bottom:16px">Select your portal below</p>
+
+      <div class="portal-tabs" role="tablist">
+        <button type="button" class="portal-tab active" data-portal="STUDENT">Student</button>
+        <button type="button" class="portal-tab" data-portal="PARENT">Parent</button>
+        <button type="button" class="portal-tab" data-portal="ADMIN">Admin</button>
+      </div>
+
+      <form id="loginForm">
+        <div class="gpn-field" id="idFieldWrap">
+          <label id="idLabel" for="loginId">Student ID</label>
+          <input class="gpn-input" id="loginId" placeholder="e.g. ST001" required autocomplete="username">
+        </div>
+
+        <div class="gpn-field gpn-hidden" id="adminSelectWrap">
+          <label for="adminSelect">Admin Account</label>
+          <select class="gpn-select" id="adminSelect">
+            <option value="T001">Super Admin (T001)</option>
+            <option value="T002">Academic Head (T002)</option>
+          </select>
+        </div>
+
+        <div class="gpn-field gpn-mt">
+          <label for="loginPw">Password</label>
+          <input class="gpn-input" id="loginPw" type="password" placeholder="Enter your password" required autocomplete="current-password">
+        </div>
+
+        <div id="loginErr" class="gpn-muted gpn-mt" style="color:var(--gpn-err)"></div>
+
+        <button type="submit" class="gpn-btn gpn-btn-gold gpn-mt" id="loginSubmitBtn" style="width:100%;padding:11px">
+          Sign In
+        </button>
+      </form>
+
+      <div class="gpn-flex gpn-mt" style="justify-content:space-between;font-size:0.82rem">
+        <a href="https://www.guidedpathnoida.in/about" target="_blank" rel="noopener">About GPN</a>
+        <a href="https://www.guidedpathnoida.in/fees" target="_blank" rel="noopener">Fee Payment</a>
+        <a href="./estore.html">Study Store</a>
+      </div>
+    </div>
+  </main>
+
+  <footer id="gpnFooter" class="gpn-footer"></footer>
+
+  <script src="./assets/core.js"></script>
+  <script>
+    (function () {
+      GPN.registerSW();
+      GPN.initFooter('gpnFooter');
+
+      // Auto-redirect if already logged in during this browser session
+      const existingUser = GPN.auth.getUser();
+      if (GPN.auth.getToken() && existingUser && existingUser.role) {
+        if (existingUser.role === 'SUPER_ADMIN' || existingUser.role === 'ADMIN') {
+          window.location.replace('./admin.html');
+          return;
+        }
+        window.location.replace('./portal.html');
+        return;
+      }
+
+      let currentPortal = 'STUDENT';
+      const tabs = document.querySelectorAll('.portal-tab');
+      const idFieldWrap = document.getElementById('idFieldWrap');
+      const adminSelectWrap = document.getElementById('adminSelectWrap');
+      const idLabel = document.getElementById('idLabel');
+      const loginId = document.getElementById('loginId');
+      const adminSelect = document.getElementById('adminSelect');
+      const loginPw = document.getElementById('loginPw');
+      const loginErr = document.getElementById('loginErr');
+      const submitBtn = document.getElementById('loginSubmitBtn');
+
+      function setPortal(p) {
+        currentPortal = p;
+        loginErr.textContent = '';
+        tabs.forEach((t) => t.classList.toggle('active', t.dataset.portal === p));
+        if (p === 'ADMIN') {
+          idFieldWrap.classList.add('gpn-hidden');
+          adminSelectWrap.classList.remove('gpn-hidden');
+          loginId.required = false;
+        } else {
+          idFieldWrap.classList.remove('gpn-hidden');
+          adminSelectWrap.classList.add('gpn-hidden');
+          loginId.required = true;
+          if (p === 'STUDENT') {
+            idLabel.textContent = 'Student ID';
+            loginId.placeholder = 'e.g. ST001';
+          } else {
+            idLabel.textContent = 'Parent ID or 10-Digit Phone';
+            loginId.placeholder = 'e.g. PR001 or 98XXXXXXXX';
+          }
+        }
+      }
+
+      tabs.forEach((t) => t.addEventListener('click', () => setPortal(t.dataset.portal)));
+
+      document.getElementById('btnLoginReportErr').addEventListener('click', () => {
+        GPN.openReportErrorModal('Login Portal', currentPortal);
+      });
+
+      document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        loginErr.textContent = '';
+        const identifier = currentPortal === 'ADMIN' ? adminSelect.value : loginId.value.trim();
+        const password = loginPw.value;
+        if (!identifier || !password) {
+          loginErr.textContent = 'Please enter your ID and password.';
+          return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Signing in...';
+
+        const res = await GPN.api('auth.login', {
+          portal: currentPortal,
+          identifier: identifier,
+          password: password
+        }, { silentAuthRedirect: true });
+
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Sign In';
+
+        if (!res.ok) {
+          loginErr.textContent = res.error || 'Invalid credentials.';
+          return;
+        }
+
+        GPN.auth.setSession(res.data.token, res.data.user);
+        const role = res.data.user.role;
+        if (role === 'SUPER_ADMIN' || role === 'ADMIN') {
+          window.location.href = './admin.html';
+        } else {
+          window.location.href = './portal.html';
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

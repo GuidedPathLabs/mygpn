@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0A192F">
+  <title>GPN Student & Parent Portal</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./assets/app.css">
+</head>
+<body>
+  <header class="gpn-topbar gpn-no-print">
+    <div class="gpn-brand">
+      <img src="https://assets.guidedpathnoida.in/gpn/gpn-logo1.jpg" alt="GPN Logo">
+      <div>
+        <div class="gpn-brand-title">Guided Path Noida Portal</div>
+        <div class="gpn-brand-sub" id="portalIdentity">Loading session...</div>
+      </div>
+    </div>
+    <div class="gpn-topbar-actions">
+      <a class="gpn-btn gpn-btn-outline gpn-btn-sm" href="./estore.html" target="_blank" rel="noopener">🛒 Store</a>
+      <button type="button" class="gpn-btn gpn-btn-outline gpn-btn-sm" id="btnPortalPw">🔑 Password</button>
+      <button type="button" class="gpn-btn gpn-btn-outline gpn-btn-sm" id="btnPortalReport">⚠ Report Error</button>
+      <button type="button" class="gpn-btn gpn-btn-danger gpn-btn-sm" id="btnPortalLogout">Logout</button>
+    </div>
+  </header>
+
+  <div class="gpn-shell">
+    <nav class="gpn-sidebar gpn-no-print" id="portalNav" aria-label="Portal Navigation"></nav>
+    <main class="gpn-main">
+      <div id="portalAnnouncements"></div>
+      <div id="portalMain">
+        <div class="gpn-center gpn-muted">Verifying your portal session...</div>
+      </div>
+    </main>
+  </div>
+
+  <footer id="gpnFooter" class="gpn-footer gpn-no-print"></footer>
+
+  <script src="./assets/core.js"></script>
+  <script>
+    (function () {
+      window.GPN_MODULES = window.GPN_MODULES || {};
+      const loadedScripts = {};
+      let activeUser = null;
+      let activeModule = null;
+
+      function loadScript(src) {
+        if (loadedScripts[src]) return loadedScripts[src];
+        loadedScripts[src] = new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = src;
+          s.onload = () => resolve();
+          s.onerror = () => reject(new Error('Failed to load ' + src));
+          document.body.appendChild(s);
+        });
+        return loadedScripts[src];
+      }
+
+      async function loadAnnouncements(role) {
+        const res = await GPN.api('promos.public.bundle', {}, { silentAuthRedirect: true });
+        if (!res.ok || !res.data || !Array.isArray(res.data.announcements)) return;
+        const list = res.data.announcements.filter((a) => {
+          const aud = String(a.Audience || 'ALL').toUpperCase();
+          return aud === 'ALL' || aud === role;
+        });
+        if (!list.length) return;
+        const el = document.getElementById('portalAnnouncements');
+        el.innerHTML = list.slice(0, 3).map((a) =>
+          '<div class="gpn-alert">' +
+            '<strong>📢 ' + GPN.ui.esc(a.Title) + ':</strong> ' + GPN.ui.esc(a.Message) +
+            (a.CTA_URL ? ' <a href="' + GPN.ui.esc(a.CTA_URL) + '" target="_blank" rel="noopener"><strong>' + GPN.ui.esc(a.CTA_Label || 'Open') + ' →</strong></a>' : '') +
+          '</div>'
+        ).join('');
+      }
+
+      async function openModule(mod) {
+        activeModule = mod;
+        document.querySelectorAll('#portalNav .gpn-nav-btn').forEach((b) => {
+          b.classList.toggle('active', b.dataset.modId === mod.id);
+        });
+        const main = document.getElementById('portalMain');
+        main.innerHTML = GPN.ui.loading('Loading ' + mod.label + '...');
+
+        try {
+          await loadScript('./modules/' + mod.script);
+          const handler = window.GPN_MODULES[mod.id];
+          if (!handler || typeof handler.render !== 'function') {
+            main.innerHTML = '<div class="gpn-alert gpn-alert-err">Module not ready: ' + GPN.ui.esc(mod.id) + '</div>';
+            return;
+          }
+          await handler.render(main, activeUser);
+        } catch (err) {
+          main.innerHTML = '<div class="gpn-alert gpn-alert-err">' + GPN.ui.esc(err.message || 'Failed to load module.') + '</div>';
+        }
+      }
+
+      async function boot() {
+        GPN.registerSW();
+        GPN.initFooter('gpnFooter');
+
+        activeUser = await GPN.auth.requireAuth(['STUDENT', 'PARENT']);
+        if (!activeUser) return;
+
+        document.getElementById('portalIdentity').textContent =
+          activeUser.displayName + ' (' + activeUser.userId + ') • ' + activeUser.role;
+
+        document.getElementById('btnPortalPw').addEventListener('click', () => GPN.openChangePasswordModal(false));
+        document.getElementById('btnPortalReport').addEventListener('click', () => {
+          GPN.openReportErrorModal('Student/Parent Portal', activeModule ? activeModule.label : 'Home');
+        });
+        document.getElementById('btnPortalLogout').addEventListener('click', () => GPN.auth.logout());
+
+        if (activeUser.mustChangePassword) return;
+
+        // Post-login ONLY WhatsApp Support widget
+        GPN.initSupportWidget();
+        loadAnnouncements(activeUser.role);
+
+        let manifest = [];
+        try {
+          const r = await fetch('./modules/modules.json');
+          manifest = await r.json();
+        } catch (e) {
+          document.getElementById('portalMain').innerHTML = '<div class="gpn-alert gpn-alert-err">Could not load ./modules/modules.json.</div>';
+          return;
+        }
+
+        const allowed = manifest.filter((m) =>
+          m.shell === 'portal' && (!m.roles || !m.roles.length || m.roles.includes(activeUser.role))
+        );
+
+        const nav = document.getElementById('portalNav');
+        nav.innerHTML = allowed.map((m) =>
+          '<button type="button" class="gpn-nav-btn" data-mod-id="' + GPN.ui.esc(m.id) + '">' +
+            '<span>' + GPN.ui.esc(m.icon || '•') + '</span>' +
+            '<span>' + GPN.ui.esc(m.label) + '</span>' +
+          '</button>'
+        ).join('');
+
+        nav.querySelectorAll('.gpn-nav-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const mod = allowed.find((m) => m.id === btn.dataset.modId);
+            if (mod) openModule(mod);
+          });
+        });
+
+        if (allowed.length) openModule(allowed[0]);
+      }
+
+      boot();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0A192F">
+  <title>Guided Path Noida — Official E-Store</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./assets/app.css">
+  <style>
+    .store-card {
+      background: var(--gpn-surface);
+      border: 1px solid var(--gpn-border-soft);
+      border-radius: var(--gpn-radius);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--gpn-shadow);
+    }
+    .store-img {
+      width: 100%;
+      height: 170px;
+      object-fit: cover;
+      background: var(--gpn-surface-2);
+    }
+    .store-body {
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+    }
+    .store-price-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-top: auto;
+      padding-top: 6px;
+    }
+    .store-final { font-size: 1.25rem; font-weight: 800; color: var(--gpn-gold); }
+    .store-mrp { font-size: 0.86rem; color: var(--gpn-muted); text-decoration: line-through; }
+  </style>
+</head>
+<body>
+  <header class="gpn-topbar" id="storeTopbar">
+    <div class="gpn-brand">
+      <img src="https://assets.guidedpathnoida.in/gpn/gpn-logo1.jpg" alt="GPN Logo">
+      <div>
+        <div class="gpn-brand-title">GPN Study E-Store</div>
+        <div class="gpn-brand-sub">Booklets • Test Packs • Study Materials</div>
+      </div>
+    </div>
+    <div class="gpn-topbar-actions">
+      <a class="gpn-btn gpn-btn-gold gpn-btn-sm" href="./index.html">Portal Login</a>
+      <button type="button" class="gpn-btn gpn-btn-outline gpn-btn-sm" id="btnStoreReport">⚠ Report Error</button>
+    </div>
+  </header>
+
+  <main class="gpn-main">
+    <div id="storeNotice"></div>
+
+    <div class="gpn-card">
+      <div class="gpn-toolbar">
+        <input class="gpn-input" id="storeSearch" placeholder="Search booklets, class, or subject..." style="max-width:300px">
+        <select class="gpn-select" id="storeCat" style="max-width:190px">
+          <option value="ALL">All Categories</option>
+        </select>
+        <select class="gpn-select" id="storeClass" style="max-width:170px">
+          <option value="ALL">All Classes</option>
+        </select>
+      </div>
+      <div id="storeGrid" class="gpn-grid gpn-grid-3">
+        <div class="gpn-center gpn-muted">Loading GPN E-Store catalog...</div>
+      </div>
+    </div>
+  </main>
+
+  <footer id="gpnFooter" class="gpn-footer"></footer>
+
+  <script src="./assets/core.js"></script>
+  <script>
+    (function () {
+      const isEmbed = new URLSearchParams(window.location.search).get('embed') === '1';
+      if (isEmbed) {
+        document.getElementById('storeTopbar').classList.add('gpn-hidden');
+        document.getElementById('gpnFooter').classList.add('gpn-hidden');
+      } else {
+        GPN.registerSW();
+        GPN.initFooter('gpnFooter');
+      }
+
+      document.getElementById('btnStoreReport').addEventListener('click', () => {
+        GPN.openReportErrorModal('GPN E-Store', 'Public Catalog');
+      });
+
+      let allProducts = [];
+      const searchEl = document.getElementById('storeSearch');
+      const catEl = document.getElementById('storeCat');
+      const clsEl = document.getElementById('storeClass');
+      const gridEl = document.getElementById('storeGrid');
+
+      function renderProducts() {
+        const q = searchEl.value.trim().toLowerCase();
+        const cat = catEl.value;
+        const cls = clsEl.value;
+
+        const filtered = allProducts.filter((p) => {
+          if (cat !== 'ALL' && String(p.Category).toUpperCase() !== cat) return false;
+          if (cls !== 'ALL' && String(p.Class) !== cls) return false;
+          if (q) {
+            const hay = (p.Name + ' ' + p.Description + ' ' + p.Class + ' ' + p.Category + ' ' + p.Tag).toLowerCase();
+            if (!hay.includes(q)) return false;
+          }
+          return true;
+        });
+
+        if (!filtered.length) {
+          gridEl.innerHTML = GPN.ui.empty('No products match your filter right now.');
+          return;
+        }
+
+        gridEl.innerHTML = filtered.map((p) => {
+          const img = p.Image_URL || 'https://assets.guidedpathnoida.in/gpn/gpn-yt.jpg';
+          const hasDisc = Number(p.Discount_Pct) > 0 && Number(p.Price) > Number(p.Final_Price);
+          return (
+            '<article class="store-card">' +
+              '<img class="store-img" src="' + GPN.ui.esc(img) + '" alt="' + GPN.ui.esc(p.Name) + '" loading="lazy" decoding="async">' +
+              '<div class="store-body">' +
+                '<div class="gpn-flex">' +
+                  '<span class="gpn-badge gpn-badge-info">' + GPN.ui.esc(p.Category || 'ITEM') + '</span>' +
+                  (p.Class ? '<span class="gpn-badge gpn-badge-gold">' + GPN.ui.esc(p.Class) + '</span>' : '') +
+                  (p.Tag ? '<span class="gpn-badge gpn-badge-ok">' + GPN.ui.esc(p.Tag) + '</span>' : '') +
+                '</div>' +
+                '<h3 style="margin:2px 0;font-size:1rem;color:var(--gpn-text)">' + GPN.ui.esc(p.Name) + '</h3>' +
+                '<p class="gpn-muted" style="margin:0">' + GPN.ui.esc(p.Description || '') + '</p>' +
+                '<div class="store-price-row">' +
+                  '<span class="store-final">' + GPN.ui.formatINR(p.Final_Price) + '</span>' +
+                  (hasDisc ? '<span class="store-mrp">' + GPN.ui.formatINR(p.Price) + '</span><span class="gpn-badge gpn-badge-ok">' + GPN.ui.esc(p.Discount_Pct) + '% OFF</span>' : '') +
+                '</div>' +
+                '<a class="gpn-btn gpn-btn-ok gpn-mt" href="' + GPN.ui.esc(p.Buy_URL) + '" target="_blank" rel="noopener">Order on WhatsApp</a>' +
+              '</div>' +
+            '</article>'
+          );
+        }).join('');
+      }
+
+      async function loadStore() {
+        const res = await GPN.api('estore.public.list', {}, { silentAuthRedirect: true });
+        if (!res.ok) {
+          gridEl.innerHTML = '<div class="gpn-alert gpn-alert-err">' + GPN.ui.esc(res.error || 'Unable to load store catalog.') + '</div>';
+          return;
+        }
+
+        const data = res.data || {};
+        if (!data.storeOpen) {
+          document.getElementById('storeNotice').innerHTML =
+            '<div class="gpn-alert gpn-alert-warn">The GPN E-Store is currently paused for updates. Please check back shortly.</div>';
+          gridEl.innerHTML = '';
+          return;
+        }
+
+        if (data.notice) {
+          document.getElementById('storeNotice').innerHTML =
+            '<div class="gpn-alert">📢 ' + GPN.ui.esc(data.notice) + '</div>';
+        }
+
+        allProducts = Array.isArray(data.products) ? data.products : [];
+
+        const cats = [...new Set(allProducts.map((p) => String(p.Category || '').toUpperCase()).filter(Boolean))];
+        cats.forEach((c) => {
+          const opt = document.createElement('option');
+          opt.value = c;
+          opt.textContent = c;
+          catEl.appendChild(opt);
+        });
+
+        const classes = [...new Set(allProducts.map((p) => String(p.Class || '')).filter(Boolean))];
+        classes.forEach((c) => {
+          const opt = document.createElement('option');
+          opt.value = c;
+          opt.textContent = c;
+          clsEl.appendChild(opt);
+        });
+
+        renderProducts();
+      }
+
+      searchEl.addEventListener('input', renderProducts);
+      catEl.addEventListener('change', renderProducts);
+      clsEl.addEventListener('change', renderProducts);
+
+      loadStore();
+    })();
+  </script>
+</body>
+</html>

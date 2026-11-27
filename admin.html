@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0A192F">
+  <title>GPN Admin Command Center</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./assets/app.css">
+</head>
+<body>
+  <header class="gpn-topbar gpn-no-print">
+    <div class="gpn-brand">
+      <img src="https://assets.guidedpathnoida.in/gpn/gpn-logo1.jpg" alt="GPN Logo">
+      <div>
+        <div class="gpn-brand-title">GPN Admin Command Center</div>
+        <div class="gpn-brand-sub" id="adminIdentity">Loading session...</div>
+      </div>
+    </div>
+    <div class="gpn-topbar-actions">
+      <a class="gpn-btn gpn-btn-outline gpn-btn-sm" href="./estore.html" target="_blank" rel="noopener">🛒 Store</a>
+      <button type="button" class="gpn-btn gpn-btn-outline gpn-btn-sm" id="btnAdminPw">🔑 Password</button>
+      <button type="button" class="gpn-btn gpn-btn-outline gpn-btn-sm" id="btnAdminReport">⚠ Report Error</button>
+      <button type="button" class="gpn-btn gpn-btn-danger gpn-btn-sm" id="btnAdminLogout">Logout</button>
+    </div>
+  </header>
+
+  <div class="gpn-shell">
+    <nav class="gpn-sidebar gpn-no-print" id="adminNav" aria-label="Admin Modules"></nav>
+    <main class="gpn-main" id="adminMain">
+      <div class="gpn-center gpn-muted">Verifying admin session...</div>
+    </main>
+  </div>
+
+  <footer id="gpnFooter" class="gpn-footer gpn-no-print"></footer>
+
+  <script src="./assets/core.js"></script>
+  <script>
+    (function () {
+      window.GPN_MODULES = window.GPN_MODULES || {};
+      const loadedScripts = {};
+      let activeUser = null;
+      let activeModule = null;
+
+      function loadScript(src) {
+        if (loadedScripts[src]) return loadedScripts[src];
+        loadedScripts[src] = new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = src;
+          s.onload = () => resolve();
+          s.onerror = () => reject(new Error('Failed to load ' + src));
+          document.body.appendChild(s);
+        });
+        return loadedScripts[src];
+      }
+
+      async function openModule(mod) {
+        activeModule = mod;
+        document.querySelectorAll('#adminNav .gpn-nav-btn').forEach((b) => {
+          b.classList.toggle('active', b.dataset.modId === mod.id);
+        });
+        const main = document.getElementById('adminMain');
+        main.innerHTML = GPN.ui.loading('Loading ' + mod.label + '...');
+
+        try {
+          await loadScript('./modules/' + mod.script);
+          const handler = window.GPN_MODULES[mod.id];
+          if (!handler || typeof handler.render !== 'function') {
+            main.innerHTML = '<div class="gpn-alert gpn-alert-err">Module <strong>' + GPN.ui.esc(mod.id) + '</strong> did not register a render function.</div>';
+            return;
+          }
+          await handler.render(main, activeUser);
+        } catch (err) {
+          main.innerHTML = '<div class="gpn-alert gpn-alert-err">' + GPN.ui.esc(err.message || 'Module failed to load.') + '</div>';
+        }
+      }
+
+      async function boot() {
+        GPN.registerSW();
+        GPN.initFooter('gpnFooter');
+
+        activeUser = await GPN.auth.requireAuth(['SUPER_ADMIN', 'ADMIN']);
+        if (!activeUser) return;
+
+        document.getElementById('adminIdentity').innerHTML =
+          '<a href="https://www.guidedpathnoida.in/about" target="_blank" rel="noopener">' +
+            GPN.ui.esc(activeUser.displayName) + ' (' + GPN.ui.esc(activeUser.userId) + ')' +
+          '</a> • ' + GPN.ui.esc(activeUser.role);
+
+        document.getElementById('btnAdminPw').addEventListener('click', () => GPN.openChangePasswordModal(false));
+        document.getElementById('btnAdminReport').addEventListener('click', () => {
+          GPN.openReportErrorModal('Admin Command Center', activeModule ? activeModule.label : 'Overview');
+        });
+        document.getElementById('btnAdminLogout').addEventListener('click', () => GPN.auth.logout());
+
+        if (activeUser.mustChangePassword) return;
+
+        let manifest = [];
+        try {
+          const r = await fetch('./modules/modules.json');
+          manifest = await r.json();
+        } catch (e) {
+          document.getElementById('adminMain').innerHTML = '<div class="gpn-alert gpn-alert-err">Could not load ./modules/modules.json.</div>';
+          return;
+        }
+
+        const allowed = manifest.filter((m) => {
+          if (m.shell !== 'admin') return false;
+          if (!m.roles || !m.roles.length) return true;
+          if (m.roles.includes(activeUser.role)) return true;
+          if (activeUser.role === 'SUPER_ADMIN' && m.roles.includes('ADMIN')) return true;
+          return false;
+        });
+
+        const nav = document.getElementById('adminNav');
+        nav.innerHTML = allowed.map((m) =>
+          '<button type="button" class="gpn-nav-btn" data-mod-id="' + GPN.ui.esc(m.id) + '">' +
+            '<span>' + GPN.ui.esc(m.icon || '•') + '</span>' +
+            '<span>' + GPN.ui.esc(m.label) + '</span>' +
+          '</button>'
+        ).join('');
+
+        nav.querySelectorAll('.gpn-nav-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const mod = allowed.find((m) => m.id === btn.dataset.modId);
+            if (mod) openModule(mod);
+          });
+        });
+
+        if (allowed.length) openModule(allowed[0]);
+      }
+
+      boot();
+    })();
+  </script>
+</body>
+</html>
