@@ -1,0 +1,82 @@
+[
+  {
+    "id": "admin-overview",
+    "shell": "admin",
+    "label": "Overview & Settings",
+    "icon": "📊",
+    "roles": ["SUPER_ADMIN", "ADMIN"],
+    "script": "mod-admin-overview.js"
+  },
+  {
+    "id": "admin-students",
+    "shell": "admin",
+    "label": "Students & Contacts",
+    "icon": "🎓",
+    "roles": ["SUPER_ADMIN", "ADMIN"],
+    "script": "mod-admin-students.js"
+  },
+  {
+    "id": "admin-offline",
+    "shell": "admin",
+    "label": "Offline Ops",
+    "icon": "🏫",
+    "roles": ["SUPER_ADMIN", "ADMIN"],
+    "script": "mod-admin-offline.js"
+  },
+  {
+    "id": "admin-online",
+    "shell": "admin",
+    "label": "Online & Exams",
+    "icon": "💻",
+    "roles": ["SUPER_ADMIN", "ADMIN"],
+    "script": "mod-admin-online.js"
+  },
+  {
+    "id": "admin-fees",
+    "shell": "admin",
+    "label": "Fees & Automation",
+    "icon": "💰",
+    "roles": ["SUPER_ADMIN", "ADMIN"],
+    "script": "mod-admin-fees.js"
+  },
+  {
+    "id": "admin-estore-promos",
+    "shell": "admin",
+    "label": "E-Store & Promos",
+    "icon": "🛒",
+    "roles": ["SUPER_ADMIN", "ADMIN"],
+    "script": "mod-admin-estore-promos.js"
+  },
+  {
+    "id": "portal-home",
+    "shell": "portal",
+    "label": "Home & Fees",
+    "icon": "🏠",
+    "roles": ["STUDENT", "PARENT"],
+    "script": "mod-portal.js"
+  },
+  {
+    "id": "portal-offline",
+    "shell": "portal",
+    "label": "Offline & Files",
+    "icon": "📚",
+    "roles": ["STUDENT", "PARENT"],
+    "script": "mod-portal.js"
+  },
+  {
+    "id": "portal-online",
+    "shell": "portal",
+    "label": "Online & Tests",
+    "icon": "📝",
+    "roles": ["STUDENT", "PARENT"],
+    "script": "mod-portal.js"
+  },
+  {
+    "id": "portal-leaderboard",
+    "shell": "portal",
+    "label": "Leaderboard",
+    "icon": "🏆",
+    "roles": ["STUDENT", "PARENT"],
+    "script": "mod-portal.js"
+  }
+]
